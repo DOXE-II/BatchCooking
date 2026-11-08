@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tirage batch cooking</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Planche de prépa : la fiche de critères à gauche, les tickets de cuisine tirés à droite */
+  --paper:#F1F3EE; --card:#FFFFFF; --ink:#17201B; --muted:#5B6660; --line:#D7DCD2;
+  --accent:#2C6847; --accent-ink:#FFFFFF; --soft:#E2ECE4;
+  --saffron:#A86E0E; --saffron-soft:#F6EBD6; --warn:#B0412A; --warn-soft:#F7E2DC;
+  --display:"Bricolage Grotesque","Avenir Next",system-ui,sans-serif;
+  --body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#111613; --card:#192019; --ink:#E6ECE6; --muted:#9BA79F; --line:#2B352E;
+    --accent:#72BF90; --accent-ink:#0E1A12; --soft:#1F2E24;
+    --saffron:#E3AE52; --saffron-soft:#2E2617; --warn:#EE8A72; --warn-soft:#33201B;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#111613; --card:#192019; --ink:#E6ECE6; --muted:#9BA79F; --line:#2B352E;
+  --accent:#72BF90; --accent-ink:#0E1A12; --soft:#1F2E24;
+  --saffron:#E3AE52; --saffron-soft:#2E2617; --warn:#EE8A72; --warn-soft:#33201B;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font:15px/1.5 var(--body)}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 20px 48px;display:grid;gap:20px}
+header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font:700 30px/1.1 var(--display);margin:0;letter-spacing:-.01em;text-wrap:balance}
+h2{font:700 18px/1.2 var(--display);margin:0;text-wrap:balance}
+h3{font:600 13px/1.2 var(--body);margin:0;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.sub{color:var(--muted);margin:4px 0 0;max-width:60ch}
+.pills{display:flex;flex-wrap:wrap;gap:6px}
+.pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:3px 10px;font-size:12.5px;color:var(--muted)}
+.pill .dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.pill.live .dot{background:var(--accent)} .pill.err .dot{background:var(--warn)}
+.pill button{border:0;background:none;padding:0;color:var(--accent);font-weight:600;cursor:pointer;text-decoration:underline}
+.grid{display:grid;grid-template-columns:330px 1fr;gap:20px;align-items:start}
+@media (max-width:880px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px}
+aside.panel{padding:16px;display:grid;gap:18px;position:sticky;top:12px}
+@media (max-width:880px){aside.panel{position:static}}
+fieldset{border:0;margin:0;padding:0;display:grid;gap:8px}
+legend{padding:0;margin-bottom:8px}
+.hint{font-size:12.5px;color:var(--muted);margin:0}
+/* Quantités */
+.qty{display:grid;grid-template-columns:1fr auto auto;gap:6px 10px;align-items:center}
+.qty .lab b{display:block;font-weight:600}
+.qty .lab span{font-size:12px;color:var(--muted)}
+.step{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.step button{width:28px;height:30px;border:0;background:var(--paper);cursor:pointer;font-weight:600}
+.step button:hover{background:var(--soft)}
+.step output{min-width:30px;text-align:center;font:500 14px var(--mono);font-variant-numeric:tabular-nums}
+.step small{font-size:11px;color:var(--muted);padding-right:6px}
+.qhead{font-size:11px;color:var(--muted);text-align:center}
+.total{font-size:12.5px;color:var(--muted)}
+/* Chips */
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:4px 11px;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.chip:hover{border-color:var(--accent)}
+.chip[data-s="oui"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip[data-s="non"]{background:var(--warn-soft);border-color:var(--warn);color:var(--warn);text-decoration:line-through}
+.chip .x{font-size:15px;line-height:1;opacity:.7}
+.tag{display:inline-block;border-radius:999px;padding:1px 8px;font-size:12px;background:var(--paper);border:1px solid var(--line);color:var(--muted)}
+.row{display:flex;gap:6px}
+.row input{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--paper)}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:6px 12px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--accent)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.big{width:100%;padding:12px;font:700 16px var(--display);border-radius:10px}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:var(--card);padding:7px 4px;cursor:pointer;font-size:13.5px}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--soft);color:var(--accent);font-weight:600}
+.toggle{display:flex;gap:8px;align-items:flex-start;font-size:14px;cursor:pointer}
+.toggle input{margin-top:3px;accent-color:var(--accent)}
+.inline{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px}
+main{display:grid;gap:20px;min-width:0}
+section.panel{padding:16px 18px;display:grid;gap:14px}
+.sechead{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
+.actions{display:flex;flex-wrap:wrap;gap:6px}
+.status{font-size:13px;color:var(--muted)}
+.status.ok{color:var(--accent)}
+/* Tickets */
+.catblock{display:grid;gap:8px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+.ticket{border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:12px;display:grid;gap:8px;background:var(--card);align-content:start}
+.ticket.dej{border-left-color:var(--saffron)}
+.ticket.snack{border-left-color:var(--warn)}
+.ticket.locked{background:var(--soft)}
+.ticket h4{margin:0;font:600 15.5px/1.3 var(--body);text-wrap:balance}
+.ticket h4 a{color:inherit;text-decoration:none}
+.ticket h4 a:hover{text-decoration:underline}
+.meta{display:flex;flex-wrap:wrap;gap:4px}
+.why{list-style:none;margin:0;padding:0;display:grid;gap:2px;font-size:12.5px;color:var(--muted)}
+.why li::before{content:attr(data-k);display:inline-block;width:14px;font-family:var(--mono);color:var(--accent)}
+.why li[data-k="−"]::before{color:var(--warn)}
+.tbar{display:flex;gap:6px;justify-content:space-between;align-items:center;border-top:1px dashed var(--line);padding-top:8px}
+.tbar .btn{padding:4px 10px;font-size:13px}
+.tupps{font:500 12.5px var(--mono);color:var(--muted)}
+.missing{border:1px dashed var(--warn);color:var(--warn);background:var(--warn-soft);border-radius:10px;padding:10px 12px;font-size:13.5px}
+.empty{color:var(--muted);font-size:13.5px}
+/* Courses */
+.shop{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+.shop ul{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:3px}
+.shop li{display:flex;justify-content:space-between;gap:8px;font-size:14px;border-bottom:1px solid var(--line);padding:3px 0}
+.shop li .q{font:500 13px var(--mono);font-variant-numeric:tabular-nums;color:var(--muted);white-space:nowrap}
+.shop li.have{color:var(--muted);text-decoration:line-through}
+/* Chances */
+.odds{display:grid;gap:4px}
+.odd{display:grid;grid-template-columns:minmax(0,1fr) 110px 46px;gap:10px;align-items:center;font-size:13.5px}
+.odd .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.odd.zero{color:var(--muted)}
+.bar{height:8px;background:var(--paper);border:1px solid var(--line);border-radius:999px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent)}
+.odd .p{font:500 12.5px var(--mono);text-align:right;font-variant-numeric:tabular-nums}
+.oddsgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+/* Historique */
+.hist{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.hist li{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start;border-bottom:1px solid var(--line);padding-bottom:8px;font-size:14px}
+.hist .d{font:500 12.5px var(--mono);color:var(--muted);white-space:nowrap;padding-top:2px}
+.hist .x{border:0;background:none;color:var(--muted);cursor:pointer;font-size:12.5px;text-decoration:underline}
+.copybox{width:100%;min-height:150px;font:13px/1.45 var(--mono);border:1px solid var(--line);border-radius:8px;padding:10px;background:var(--paper)}
+.how{font-size:13.5px;color:var(--muted);display:grid;gap:4px;max-width:75ch}
+.how p{margin:0}
+@media (prefers-reduced-motion:no-preference){.ticket{animation:in .25s ease both}@keyframes in{from{transform:translateY(4px)}to{transform:none}}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Tirage batch cooking</h1>
+      <p class="sub">Règle les critères, tire les recettes de la semaine, valide le tirage puis demande la marche à suivre à Claude.</p>
+    </div>
+    <div class="pills" id="pills"></div>
+  </header>
+
+  <div class="grid">
+    <aside class="panel" aria-label="Critères">
+      <fieldset>
+        <legend><h3>Combien</h3></legend>
+        <div class="qty" id="qty"></div>
+        <p class="hint">Recettes différentes × tupps par recette. Les plats « entiers » (cannelloni…) ignorent les tupps.</p>
+      </fieldset>
+
+      <fieldset>
+        <legend><h3>Envies pour les repas</h3></legend>
+        <div id="envies"></div>
+        <p class="hint">1 clic : envie (plus de chances). 2 clics : pas envie (exclu). 3 clics : neutre.</p>
+      </fieldset>
+
+      <fieldset>
+        <legend><h3>Déjà au frigo</h3></legend>
+        <form class="row" id="frigoForm">
+          <input id="frigoIn" list="ingList" placeholder="ex. courgette, riz" autocomplete="off" aria-label="Ingrédient au frigo">
+          <button class="btn" type="submit">Ajouter</button>
+        </form>
+        <div class="chips" id="frigo"></div>
+        <p class="hint">Les recettes qui les utilisent sortent plus souvent.</p>
+      </fieldset>
+
+      <fieldset>
+        <legend><h3>À éviter</h3></legend>
+        <form class="row" id="eviterForm">
+          <input id="eviterIn" list="ingList" placeholder="ex. saumon" autocomplete="off" aria-label="Ingrédient à éviter">
+          <button class="btn" type="submit">Ajouter</button>
+        </form>
+        <div class="chips" id="eviter"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend><h3>Budget de la semaine</h3></legend>
+        <div class="seg" id="budget" role="group" aria-label="Budget">
+          <button type="button" data-v="serre">Serré</button>
+          <button type="button" data-v="normal">Normal</button>
+          <button type="button" data-v="large">Large</button>
+        </div>
+        <p class="hint">Estimation par recette : légumineuses et œufs bon marché, viande moyen, saumon cher.</p>
+      </fieldset>
+
+      <fieldset>
+        <legend><h3>Organisation de la session</h3></legend>
+        <div class="inline"><span>Plats au four, maximum</span><span class="step" id="maxFour"></span></div>
+        <label class="toggle"><input type="checkbox" id="mutualiser"> <span>Favoriser les ingrédients en commun (moins de courses)</span></label>
+        <label class="toggle"><input type="checkbox" id="varier"> <span>Varier les protéines</span></label>
+        <label class="toggle"><input type="checkbox" id="vides"> <span>Inclure les recettes encore vides dans Notion</span></label>
+      </fieldset>
+
+      <button class="btn primary big" id="go" type="button">Tirer les recettes</button>
+    </aside>
+
+    <main>
+      <section class="panel" aria-labelledby="t-tirage">
+        <div class="sechead">
+          <h2 id="t-tirage">Tirage de la semaine</h2>
+          <div class="actions">
+            <button class="btn primary" id="valider" type="button">Valider ce tirage</button>
+            <button class="btn" id="copier" type="button">Copier pour Claude</button>
+          </div>
+        </div>
+        <div class="status" id="status"></div>
+        <div id="tirage" class="catblock"></div>
+        <textarea class="copybox" id="copybox" hidden readonly aria-label="Texte à copier"></textarea>
+      </section>
+
+      <section class="panel" aria-labelledby="t-courses">
+        <div class="sechead"><h2 id="t-courses">Liste de courses</h2><span class="status">Quantités totales pour le tirage</span></div>
+        <div class="shop" id="shop"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="t-odds">
+        <div class="sechead"><h2 id="t-odds">Chances de sortir</h2><span class="status">Probabilité au premier tirage, avec tes critères actuels</span></div>
+        <div class="oddsgrid" id="odds"></div>
+        <div class="how">
+          <p>Chaque recette part d'un poids de 1, multiplié par :</p>
+          <p>rotation (×1,35 par session sans être tirée, jusqu'à ×3,8 ; ×0,25 si tirée la dernière fois) · nouveauté (jusqu'à ×2,5 les 4 premières semaines) · envies (×2,5 par envie, exclue si « pas envie ») · frigo (×2,2 par ingrédient présent) · budget · ingrédients en commun avec les recettes déjà tirées · protéine déjà tirée (×0,45).</p>
+        </div>
+      </section>
+
+      <section class="panel" aria-labelledby="t-hist">
+        <div class="sechead"><h2 id="t-hist">Historique des tirages validés</h2><span class="status" id="histNote"></span></div>
+        <ul class="hist" id="hist"></ul>
+      </section>
+    </main>
+  </div>
+</div>
+<datalist id="ingList"></datalist>
+
+<script>
+"use strict";
+/* ---------- Données : instantané de la base Notion RECETTES (8 nov. 2026) ---------- */
+const DS_URL = "collection://412f8a3b-5dc4-803b-baca-000b970a040a";
+const NOTION = "Notion";
+const SNAPSHOT_LABEL = "instantané du 8 nov.";
+const D = ["Dîner","Souper"];
+const SNAP = [
+ {id:"412f8a3b5dc480419078fe048e815457",nom:"Carbonara",gout:"Salé",repas:D,cree:"2026-11-08T13:11:08Z",budget:2,ing:""},
+ {id:"412f8a3b5dc48018a0a1c977c1603536",nom:"Bolognaise",gout:"Salé",repas:D,cree:"2026-11-08T13:14:04Z",budget:2,ing:""},
+ {id:"412f8a3b5dc480d29bc5dce0c2b1715f",nom:"Lasagnes épinards-saumon",gout:"Salé",repas:D,cree:"2026-11-08T13:15:39Z",four:true,budget:3,
+  ing:"Oignons=0.3;Sel=1 pincée;Poivre=1 pincée;Noix de muscade=1 pincée;Plaques de lasagnes=3;Crème fraîche liquide=15 cl;Jus de citron=2 càc;Citron jaune=1;Saumon fumé=75 g;Épinards frais=70 g;Fromage râpé=8 g;Fromage ail & fines herbes=50 g"},
+ {id:"412f8a3b5dc48095b5d4dbd8ad70fc0f",nom:"Cookies",gout:"Sucré",repas:["4h"],cree:"2026-11-08T13:24:20Z",four:true,budget:1,ing:""},
+ {id:"412f8a3b5dc480499914c63c5950ac56",nom:"Moussaka végé",gout:"Salé",repas:D,cree:"2026-11-08T13:27:52Z",four:true,budget:1,
+  ing:"Aubergine=80 g;Courgette=80 g;Pomme de terre=100 g;Huile d'olive=1 càc;Cumin en poudre=0.3 càc;Origan séché=0.5 càc;Sel=1 pincée;Poivre=1 pincée;Oignons=0.3;Ail=0.5 gousse;Paprika en poudre=0.5 càc;Tomate concassée=150 g;Lentille corail=40 g;Béchamel=40 g"},
+ {id:"412f8a3b5dc4809bacb1e394bc9ac671",nom:"Gnocchis champi-épinards",gout:"Salé",repas:D,cree:"2026-11-08T13:28:23Z",budget:1,ing:""},
+ {id:"412f8a3b5dc4815d8ed6d4a2a4c8cb61",nom:"Cannelloni bolognaise",gout:"Salé",repas:D,cree:"2026-11-08T13:38:02Z",four:true,budget:2,base:"pièce",
+  ing:"Coulis de tomate=400 g;Fromage râpé=30 g;Viande hachée=300 g;Oignons=1;Ail=1 gousse;Herbes de Provence=0.5 càc;Sel=1 pincée;Poivre=1 pincée;Cannelloni=12;Huile d'olive=1 càs"},
+ {id:"412f8a3b5dc481d2a81cc9cddf5a86a4",nom:"Poulet coco-citronnelle",gout:"Salé",repas:D,cree:"2026-11-08T13:38:02Z",budget:2,
+  ing:"Blanc de poulet=130 g;Riz=60 g;Haricots verts surgelés=150 g;Lait de coco=10 cl;Citronnelle en poudre=1 càc;Ail=1 gousse;Huile neutre=1 càc;Sauce soja=1 càc;Eau=80 ml;Poivre=1 pincée"},
+ {id:"412f8a3b5dc48132b67ed2709a7d9340",nom:"Overnight oats fraise & amandes",gout:"Sucré",repas:["Déjeuner"],cree:"2026-11-08T13:45:24Z",froid:true,budget:1,
+  ing:"Flocon d'avoine=50 g;Lait=180 ml;Yaourt grec nature 0%=50 g;Fraise=80 g;Amande=15 g;Miel=1 càc"},
+ {id:"412f8a3b5dc4813da470e4a72866bf01",nom:"Pancakes moelleux avoine & myrtilles",gout:"Sucré",repas:["Déjeuner"],cree:"2026-11-08T13:45:24Z",budget:1,
+  ing:"Flocon d'avoine=50 g;Farine de blé=40 g;Oeuf=2;Levure chimique=2 g;Myrtille=30 g;Huile d'olive=1 càc;Sel=1 pincée;Lait=60 ml"},
+ {id:"412f8a3b5dc481449bd6f789ac1ca8e7",nom:"Poulet rôti au zaatar, carottes rôties & pommes de terre",gout:"Salé",repas:D,cree:"2026-11-08T13:45:24Z",four:true,budget:2,
+  ing:"Blanc de poulet=130 g;Pomme de terre=250 g;Carotte=150 g;Zaatar=1 càc;Huile d'olive=2 càc;Sel=1 pincée;Poivre=1 pincée"},
+ {id:"412f8a3b5dc48172aafbc455fabaee58",nom:"Pain perdu brioché à la cannelle",gout:"Sucré",repas:["Déjeuner"],cree:"2026-11-08T13:45:24Z",budget:1,
+  ing:"Pain brioché=100 g;Oeuf=1;Lait=60 ml;Cannelle en poudre=1 càc;Beurre=1 càc"},
+ {id:"412f8a3b5dc481c99fd8c70f8d384dfc",nom:"Gratin dauphinois",gout:"Salé",repas:D,cree:"2026-11-08T13:45:24Z",four:true,budget:1,
+  ing:"Sel=1 pincée;Poivre=1 pincée;Noix de muscade=1 pincée;Crème fraîche liquide=120 ml;Huile d'olive=1 càc;Ail=0.5 gousse;Pomme de terre=300 g"},
+ {id:"412f8a3b5dc481ff8fecf997908fb429",nom:"Cannelloni à la tomate",gout:"Salé",repas:D,cree:"2026-11-08T13:45:24Z",four:true,budget:2,base:"pièce",
+  ing:"Cannelloni=12;Oignons=1;Ail=1 gousse;Huile d'olive=1 càs;Noix de muscade=1 pincée;Sel=1 pincée;Poivre=1 pincée;Ricotta=250 g;Épinard frais=300 g;Coulis de tomate=400 g;Fromage râpé=30 g"},
+ {id:"412f8a3b5dc4815da5ebce9eac3cfaed",nom:"Poêlée haricots rouges, riz, poivron, courgette & paprika",gout:"Salé",repas:D,cree:"2026-11-08T13:53:23Z",budget:1,
+  ing:"Haricot rouge=140 g;Riz=60 g;Poivron=80 g;Courgette=80 g;Huile d'olive=1 càs;Paprika en poudre=1 càc;Sel=1 pincée;Poivre=1 pincée"},
+ {id:"412f8a3b5dc4817c8bfee3588b4d6130",nom:"Wrap houmous, poulet effiloché & crudités",gout:"Salé",repas:D,cree:"2026-11-08T13:53:23Z",budget:2,
+  ing:"Salade verte=15 g;Huile d'olive=1 càc;Tortilla souple à base de blé=1;Houmous=40 g;Blanc de poulet=0.5;Carotte=30 g"},
+ {id:"412f8a3b5dc481998729e03529dd3fe6",nom:"Wrap œufs, avocat, salade, tomate & sauce yaourt-ciboulette",gout:"Salé",repas:D,cree:"2026-11-08T13:53:23Z",budget:2,
+  ing:"Tortilla souple à base de blé=2;Oeuf=3;Avocat=0.5;Salade verte=50 g;Tomate=100 g;Yaourt grec nature 0%=1 càs;Ciboulette=3 g;Huile d'olive=1 càs;Sel=1 pincée;Poivre=1 pincée"},
+ {id:"412f8a3b5dc4819fbeebc9a8fefd7051",nom:"Gratin de courgettes au jambon et parmesan",gout:"Salé",repas:D,cree:"2026-11-08T13:53:23Z",four:true,budget:2,
+  ing:"Oeuf=1;Huile d'olive=1 càs;Herbes de Provence=0.5 càc;Sel=1 pincée;Poivre=1 pincée;Oignons=0.5;Jambon blanc=30 g;Crème fraîche liquide=60 ml;Courgette=200 g;Parmesan râpé=20 g"},
+ {id:"412f8a3b5dc481c58badda10c27447fc",nom:"Poêlée poulet, courgette, poivron, riz",gout:"Salé",repas:D,cree:"2026-11-08T13:53:23Z",budget:2,
+  ing:"Courgette=120 g;Poivron=100 g;Oignons=0.5;Curry en poudre=1 càc;Huile d'olive=1 càs;Sel=1 pincée;Poivre=1 pincée;Blanc de poulet=110 g;Riz=70 g"}
+];
+
+/* ---------- Outils texte ---------- */
+const norm = s => String(s||"").toLowerCase().replace(/œ/g,"oe").replace(/æ/g,"ae").normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[’']/g," ").replace(/\s+/g," ").trim();
+const ingKey = n => norm(n).split(" ").map(w => w.length>3 ? w.replace(/(s|x)$/,"") : w).join(" ");
+const KEYNAME = {};
+const PANTRY = /^(sel|poivre|huile|paprika|cumin|curry|origan|herbe|noix de muscade|muscade|cannelle|zaatar|citronnelle|sauce soja|levure|eau)\b/;
+const COMMON = new Set(["ail","oignon"]);
+const isPantry = k => PANTRY.test(k);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const notionUrl = id => "https://www.notion.so/" + id;
+
+const CATS = [
+  {k:"sale", label:"Repas", sub:"dîner / souper", unit:"tupps"},
+  {k:"dej", label:"Déjeuners", sub:"le matin", unit:"portions"},
+  {k:"snack", label:"4h & desserts", sub:"sucré", unit:"portions"}
+];
+const TAGS = [["Poulet","Viande","Poisson","Végé"],["Pâtes","Riz","Pommes de terre","Wrap"],["Four","Poêle","Sans cuisson"]];
+
+function catOf(r){
+  const rep = r.repas || [];
+  if (rep.includes("Déjeuner")) return "dej";
+  if (rep.includes("Dîner") || rep.includes("Souper")) return "sale";
+  if (rep.some(x => ["4h","Dessert","Apéro"].includes(x))) return "snack";
+  return r.gout === "Sucré" ? "snack" : "sale";
+}
+function derive(r){
+  const t = norm(r.nom + " " + r.ing.map(i => i[0]).join(" "));
+  const prot = /poulet|dinde/.test(t) ? "Poulet"
+    : /saumon|thon|cabillaud|crevette|poisson|truite/.test(t) ? "Poisson"
+    : /viande|boeuf|porc|jambon|lardon|saucisse|chorizo|bacon|agneau|bolognaise|carbonara/.test(t) ? "Viande" : "Végé";
+  const fec = /\briz\b/.test(t) ? "Riz"
+    : /\bpates?\b|spaghetti|penne|lasagne|cannelloni|gnocchi|tagliatelle|carbonara|bolognaise|nouille|coquillette/.test(t) ? "Pâtes"
+    : /pomme de terre|patate/.test(t) ? "Pommes de terre"
+    : /tortilla|wrap/.test(t) ? "Wrap" : null;
+  const cuisson = r.froid ? "Sans cuisson" : r.four ? "Four" : "Poêle";
+  const budget = /saumon|boeuf|crevette|cabillaud/.test(t) ? 3 : /poulet|viande|jambon|ricotta|avocat|houmous|lardon/.test(t) ? 2 : 1;
+  return {prot, fec, cuisson, budget, tags:[prot, fec, cuisson].filter(Boolean)};
+}
+function parseIng(s){ return typeof s === "string" ? (s ? s.split(";").map(p => p.split("=")) : []) : (s || []); }
+function prep(raw){
+  const r = Object.assign({base:"personne"}, raw);
+  r.ing = parseIng(r.ing);
+  r.cat = catOf(r);
+  const d = derive(r);
+  r.prot = d.prot; r.fec = d.fec; r.cuisson = d.cuisson; r.tags = d.tags;
+  if (r.budget == null) r.budget = d.budget;
+  r.keys = r.ing.map(i => { const k = ingKey(i[0]); KEYNAME[k] = KEYNAME[k] || i[0].toLowerCase(); return k; });
+  return r;
+}
+
+/* ---------- Stockage local (confort) ---------- */
+function lsGet(k, d){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch(e){ return d; } }
+function lsSet(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch(e){} }
+
+let recipes = [];
+let byId = {};
+function setRecipes(list){
+  recipes = list.map(prep).sort((a,b) => a.nom.localeCompare(b.nom, "fr"));
+  byId = Object.fromEntries(recipes.map(r => [r.id, r]));
+  const dl = document.getElementById("ingList");
+  const names = [...new Set(recipes.flatMap(r => r.ing.map(i => i[0].toLowerCase())))].filter(n => !PANTRY.test(ingKey(n))).sort((a,b)=>a.localeCompare(b,"fr"));
+  dl.innerHTML = names.map(n => `<option value="${esc(n)}"></option>`).join("");
+}
+const cachedLive = lsGet("batch.recettes", null);
+setRecipes(cachedLive && cachedLive.list && cachedLive.list.length ? cachedLive.list : SNAP);
+
+/* ---------- Critères ---------- */
+const DEF = {counts:{sale:[3,2], dej:[1,4], snack:[0,4]}, envies:{}, frigo:[], eviter:[], budget:"normal", maxFour:2, mutualiser:true, varier:true, vides:false};
+let S = Object.assign(JSON.parse(JSON.stringify(DEF)), lsGet("batch.criteres", {}));
+S.counts = Object.assign({}, DEF.counts, S.counts || {});
+const saveS = () => lsSet("batch.criteres", S);
+
+let draw = {sale:[], dej:[], snack:[]};
+let autoDraw = true;           // le tirage affiché n'a pas encore été touché
+let validated = null;
+let history = [];              // plus récent en premier : {id, date, items:[{id,nom,cat,tupps}], ids:[]}
+let DB = null;
+let histNote = "";
+let live = {state:"snapshot", at:null, msg:""};
+
+/* ---------- Probabilités ---------- */
+function matches(r, item){ const k = ingKey(item); if (k.length < 3) return false; return r.keys.some(x => x.includes(k) || (x.length >= 3 && k.includes(x))) || norm(r.nom).includes(norm(item)); }
+function weigh(r, picked){
+  const why = [];
+  let w = 1;
+  if (!r.ing.length && !S.vides) return {w:0, why:[["×","Recette encore vide dans Notion"]]};
+  const ev = S.eviter.find(e => matches(r, e));
+  if (ev) return {w:0, why:[["×","Contient " + ev]]};
+  if (r.cat === "sale"){
+    const no = r.tags.filter(t => S.envies[t] === "non");
+    if (no.length) return {w:0, why:[["×","Pas envie : " + no.join(", ")]]};
+    const yes = r.tags.filter(t => S.envies[t] === "oui");
+    if (yes.length){ w *= Math.pow(2.5, yes.length); why.push(["+","Envie : " + yes.join(", ")]); }
+    else if (Object.values(S.envies).includes("oui")){ w *= 0.4; why.push(["−","Hors de tes envies"]); }
+  }
+  if (r.four && picked.filter(p => p.four).length >= S.maxFour) return {w:0, why:[["×","Four déjà plein"]]};
+  // Rotation : plus une recette attend, plus elle a de chances
+  if (history.length){
+    const idx = history.findIndex(h => (h.ids || []).includes(r.id));
+    const added = Date.parse(r.cree) || 0;
+    if (idx === 0){ w *= 0.25; why.push(["−","Tirée la dernière fois"]); }
+    else if (idx === 1){ w *= 0.6; why.push(["−","Tirée il y a 2 sessions"]); }
+    else {
+      const since = idx === -1 ? history.filter(h => Date.parse(h.date) > added).length : idx;
+      if (since >= 2){ w *= 1 + 0.35 * Math.min(since, 8); why.push(["+", idx === -1 ? `Jamais tirée (${since} sessions)` : `Pas tirée depuis ${since} sessions`]); }
+      else if (idx === -1){ w *= 1.3; why.push(["+","Jamais tirée"]); }
+    }
+  }
+  // Nouveauté : boost dégressif sur 4 semaines
+  const age = (Date.now() - (Date.parse(r.cree) || 0)) / 864e5;
+  if (age < 28){ w *= 1 + 1.5 * (1 - age/28); if (age < 14 && recipes.some(x => Date.now() - (Date.parse(x.cree) || 0) > 28 * 864e5)) why.push(["+","Ajoutée récemment"]); }
+  // Frigo
+  const fr = S.frigo.filter(f => matches(r, f));
+  if (fr.length){ w *= 1 + 1.2 * fr.length; why.push(["+","Frigo : " + fr.join(", ")]); }
+  // Budget
+  const B = {serre:[1.6,1,0.35], normal:[1.1,1,0.8], large:[1,1,1.15]}[S.budget] || [1,1,1];
+  w *= B[r.budget - 1] || 1;
+  if (S.budget === "serre" && r.budget === 1) why.push(["+","Petit budget"]);
+  if (S.budget !== "large" && r.budget === 3) why.push(["−","Plutôt cher"]);
+  // Ingrédients en commun avec ce qui est déjà tiré
+  if (S.mutualiser && picked.length){
+    const pk = new Set(picked.flatMap(p => p.keys));
+    const sh = [...new Set(r.keys.filter(k => pk.has(k) && !isPantry(k) && !COMMON.has(k)))];
+    if (sh.length){ w *= 1 + 0.3 * Math.min(sh.length, 4); why.push(["+","En commun : " + sh.slice(0,3).map(k => KEYNAME[k]).join(", ")]); }
+  }
+  // Variété des protéines
+  if (S.varier && r.cat === "sale"){
+    const same = picked.filter(p => p.cat === "sale" && p.prot === r.prot).length;
+    if (same){ w *= Math.pow(0.45, same); why.push(["−","Protéine déjà tirée : " + r.prot.toLowerCase()]); }
+  }
+  return {w, why};
+}
+function pickOne(pool){
+  const tot = pool.reduce((s,x) => s + x.w, 0);
+  if (tot <= 0) return null;
+  let t = Math.random() * tot;
+  for (const x of pool){ t -= x.w; if (t <= 0) return x; }
+  return pool[pool.length - 1];
+}
+function selected(){ return CATS.flatMap(c => draw[c.k]).map(x => byId[x.id]).filter(Boolean); }
+
+function generate(manual){
+  const picked = [];
+  const next = {};
+  for (const c of CATS){
+    const n = S.counts[c.k][0];
+    next[c.k] = (draw[c.k] || []).filter(x => x.locked && byId[x.id]).slice(0, n).map(x => ({...x}));
+    next[c.k].forEach(x => picked.push(byId[x.id]));
+  }
+  for (const c of CATS){
+    const n = S.counts[c.k][0];
+    while (next[c.k].length < n){
+      const taken = new Set(picked.map(p => p.id));
+      const pool = recipes.filter(r => r.cat === c.k && !taken.has(r.id)).map(r => ({r, ...weigh(r, picked)})).filter(x => x.w > 0);
+      const x = pickOne(pool);
+      if (!x) break;
+      next[c.k].push({id:x.r.id, locked:false, why:x.why});
+      picked.push(x.r);
+    }
+  }
+  draw = next;
+  validated = null;
+  if (manual) autoDraw = false;
+  render();
+}
+function reroll(cat, i){
+  autoDraw = false;
+  const cur = draw[cat][i];
+  const others = selected().filter(r => r.id !== cur.id);
+  const taken = new Set([...others.map(r => r.id), cur.id]);
+  const pool = recipes.filter(r => r.cat === cat && !taken.has(r.id)).map(r => ({r, ...weigh(r, others)})).filter(x => x.w > 0);
+  const x = pickOne(pool);
+  if (!x){ setStatus("Aucune autre recette possible avec ces critères.", false); return; }
+  draw[cat][i] = {id:x.r.id, locked:false, why:x.why};
+  validated = null;
+  render();
+}
+
+/* ---------- Liste de courses ---------- */
+const UNIT = {"cac":"càc","cas":"càs","g":"g","kg":"kg","ml":"ml","cl":"cl","l":"l","gousse":"gousse","pincee":"pincée","":""};
+function parseQty(q){
+  const m = String(q).trim().match(/^([\d.,]+)\s*(.*)$/);
+  if (!m) return {n:null, u:String(q)};
+  let n = parseFloat(m[1].replace(",", ".")), u = norm(m[2]).replace(/s$/,"");
+  if (u === "cl"){ n *= 10; u = "ml"; }
+  if (u === "kg"){ n *= 1000; u = "g"; }
+  return {n, u: UNIT[u] != null ? UNIT[u] : m[2]};
+}
+function fmt(n, u){
+  if (u === "g" || u === "ml") return (n >= 50 ? Math.round(n/5)*5 : Math.round(n)) + " " + u;
+  if (u === "" || u === "gousse"){ const c = Math.ceil(n - 1e-9); return (Math.abs(c - n) > 0.01 ? c + " (" + (+n.toFixed(1)) + ")" : c) + (u ? " " + u + (c > 1 ? "s" : "") : ""); }
+  if (u === "pincée") return Math.ceil(n) + " pincée" + (n > 1 ? "s" : "");
+  return (+n.toFixed(1)) + " " + u;
+}
+function shopping(){
+  const items = {};
+  for (const c of CATS){
+    for (const x of draw[c.k]){
+      const r = byId[x.id]; if (!r) continue;
+      const f = r.base === "pièce" ? 1 : S.counts[c.k][1];
+      r.ing.forEach(([name, q], i) => {
+        const k = r.keys[i]; if (k === "eau") return;
+        const p = parseQty(q);
+        const id = k + "|" + p.u;
+        if (!items[id]) items[id] = {k, name, u:p.u, n:0, raw:[]};
+        if (p.n == null) items[id].raw.push(q); else items[id].n += p.n * f;
+      });
+    }
+  }
+  const buy = [], pantry = [], have = [];
+  Object.values(items).sort((a,b) => a.name.localeCompare(b.name, "fr")).forEach(it => {
+    const q = it.n ? fmt(it.n, it.u) : it.raw.join(", ");
+    const row = {name: it.name, q};
+    if (S.frigo.some(f => { const fk = ingKey(f); return fk.length >= 3 && (it.k.includes(fk) || fk.includes(it.k)); })) have.push(row);
+    else if (isPantry(it.k)) pantry.push(row);
+    else buy.push(row);
+  });
+  return {buy, pantry, have};
+}
+
+/* ---------- Rendu ---------- */
+const $ = id => document.getElementById(id);
+function stepper(val, min, max, onChange, label){
+  const span = document.createElement("span");
+  span.className = "step";
+  span.innerHTML = `<button type="button" aria-label="Moins ${esc(label)}">−</button><output>${val}</output><button type="button" aria-label="Plus ${esc(label)}">+</button>`;
+  const [minus, , plus] = span.children;
+  minus.onclick = () => { if (val > min) onChange(val - 1); };
+  plus.onclick = () => { if (val < max) onChange(val + 1); };
+  return span;
+}
+function renderCriteria(){
+  const q = $("qty");
+  q.innerHTML = `<span></span><span class="qhead">recettes</span><span class="qhead">par recette</span>`;
+  for (const c of CATS){
+    const [n, t] = S.counts[c.k];
+    const avail = recipes.filter(r => r.cat === c.k && (r.ing.length || S.vides)).length;
+    const lab = document.createElement("div");
+    lab.className = "lab";
+    lab.innerHTML = `<b>${c.label}</b><span>${n ? `${n * t} ${c.unit} au total` : "aucun"} · ${avail} dispo</span>`;
+    q.append(lab,
+      stepper(n, 0, 10, v => { S.counts[c.k][0] = v; changed(); }, c.label),
+      stepper(t, 1, 10, v => { S.counts[c.k][1] = v; changed(); }, c.unit + " " + c.label));
+  }
+  $("envies").innerHTML = TAGS.map(g => `<div class="chips" style="margin-bottom:6px">${g.map(t =>
+    `<button type="button" class="chip" data-tag="${esc(t)}" data-s="${S.envies[t] || ""}" aria-label="${esc(t)} : ${S.envies[t] === "oui" ? "envie" : S.envies[t] === "non" ? "pas envie" : "neutre"}">${S.envies[t] === "oui" ? "+ " : S.envies[t] === "non" ? "− " : ""}${esc(t)}</button>`).join("")}</div>`).join("");
+  $("envies").querySelectorAll(".chip").forEach(b => b.onclick = () => {
+    const t = b.dataset.tag, s = S.envies[t];
+    if (!s) S.envies[t] = "oui"; else if (s === "oui") S.envies[t] = "non"; else delete S.envies[t];
+    changed();
+  });
+  for (const key of ["frigo","eviter"]){
+    $(key).innerHTML = S[key].map((f,i) => `<button type="button" class="chip" data-i="${i}" aria-label="Retirer ${esc(f)}">${esc(f)} <span class="x">×</span></button>`).join("");
+    $(key).querySelectorAll(".chip").forEach(b => b.onclick = () => { S[key].splice(+b.dataset.i, 1); changed(); });
+  }
+  $("budget").querySelectorAll("button").forEach(b => { b.setAttribute("aria-pressed", String(S.budget === b.dataset.v)); b.onclick = () => { S.budget = b.dataset.v; changed(); }; });
+  $("maxFour").replaceWith(Object.assign(stepper(S.maxFour, 0, 6, v => { S.maxFour = v; changed(); }, "plats au four"), {id:"maxFour"}));
+  for (const k of ["mutualiser","varier","vides"]){ $(k).checked = !!S[k]; $(k).onchange = e => { S[k] = e.target.checked; changed(); }; }
+}
+function changed(){ saveS(); if (autoDraw) generate(false); else render(); }
+
+function renderPills(){
+  const n = recipes.length;
+  let src;
+  if (live.state === "live") src = `<span class="pill live"><span class="dot"></span>Notion en direct · ${n} recettes${live.at ? " · " + new Date(live.at).toLocaleTimeString("fr-CH",{hour:"2-digit",minute:"2-digit"}) : ""}</span>`;
+  else if (live.state === "ask") src = `<span class="pill"><span class="dot"></span>${n} recettes (${SNAPSHOT_LABEL}) · <button type="button" id="askNotion">Lire Notion en direct</button></span>`;
+  else if (live.state === "loading") src = `<span class="pill"><span class="dot"></span>Lecture de Notion…</span>`;
+  else if (live.state === "error") src = `<span class="pill err" title="${esc(live.msg)}"><span class="dot"></span>${esc(live.msg)} · ${n} recettes (${SNAPSHOT_LABEL})</span>`;
+  else src = `<span class="pill"><span class="dot"></span>${n} recettes · ${SNAPSHOT_LABEL}</span>`;
+  const h = `<span class="pill ${DB ? "live" : ""}"><span class="dot"></span>${history.length} tirage${history.length > 1 ? "s" : ""} en mémoire${DB ? "" : " (ce navigateur)"}</span>`;
+  $("pills").innerHTML = src + h;
+  const a = $("askNotion"); if (a) a.onclick = () => syncNotion(true);
+}
+function renderDraw(){
+  const out = [];
+  for (const c of CATS){
+    const n = S.counts[c.k][0];
+    if (!n) continue;
+    const list = draw[c.k];
+    const cards = list.map((x, i) => {
+      const r = byId[x.id]; if (!r) return "";
+      const tupps = r.base === "pièce" ? "plat entier" : `× ${S.counts[c.k][1]} ${c.unit}`;
+      const tags = (c.k === "sale" ? r.tags : [r.cuisson]).map(t => `<span class="tag">${esc(t)}</span>`).join("");
+      const why = (x.why || []).map(([k, t]) => `<li data-k="${k}">${esc(t)}</li>`).join("");
+      return `<article class="ticket ${c.k} ${x.locked ? "locked" : ""}">
+        <h4><a href="${notionUrl(r.id)}" target="_blank" rel="noopener">${esc(r.nom)}</a></h4>
+        <div class="meta">${tags}<span class="tag">${["petit budget","budget moyen","plus cher"][r.budget-1] || ""}</span>${r.ing.length ? "" : `<span class="tag">vide dans Notion</span>`}</div>
+        ${why ? `<ul class="why">${why}</ul>` : ""}
+        <div class="tbar"><span class="tupps">${tupps}</span><span class="actions">
+          <button type="button" class="btn" data-a="lock" data-c="${c.k}" data-i="${i}" aria-pressed="${!!x.locked}">${x.locked ? "Gardée" : "Garder"}</button>
+          <button type="button" class="btn" data-a="reroll" data-c="${c.k}" data-i="${i}" ${x.locked ? "disabled" : ""}>Autre</button>
+        </span></div>
+      </article>`;
+    }).join("");
+    const miss = n - list.length;
+    out.push(`<div class="catblock"><h3>${c.label} · ${c.sub}</h3><div class="cards">${cards}</div>
+      ${miss > 0 ? `<div class="missing">Il manque ${miss} recette${miss > 1 ? "s" : ""} : pas assez de recettes ${c.label.toLowerCase()} qui passent tes critères. Assouplis-les ou ajoute des recettes dans Notion.</div>` : ""}</div>`);
+  }
+  $("tirage").innerHTML = out.join("") || `<p class="empty">Choisis au moins une recette dans « Combien ».</p>`;
+  $("tirage").querySelectorAll("button[data-a]").forEach(b => b.onclick = () => {
+    const c = b.dataset.c, i = +b.dataset.i;
+    if (b.dataset.a === "lock"){ draw[c][i].locked = !draw[c][i].locked; autoDraw = false; render(); }
+    else reroll(c, i);
+  });
+  const any = selected().length > 0;
+  $("valider").disabled = !any || !!validated;
+  $("valider").textContent = validated ? "Tirage validé" : "Valider ce tirage";
+  $("copier").disabled = !any;
+}
+function setStatus(t, ok){ $("status").textContent = t; $("status").className = "status" + (ok ? " ok" : ""); }
+function renderStatus(){
+  if (validated) setStatus(`Validé le ${new Date(validated).toLocaleDateString("fr-CH",{weekday:"long",day:"numeric",month:"long"})}. Tu peux demander à Claude : « fais le batch cooking de mon dernier tirage ».`, true);
+  else setStatus(selected().length ? "Pas encore validé : seuls les tirages validés comptent pour la rotation." : "", false);
+}
+function renderShop(){
+  const {buy, pantry, have} = shopping();
+  const col = (title, rows, cls) => `<div><h3>${title}</h3>${rows.length ? `<ul>${rows.map(r => `<li class="${cls}"><span>${esc(r.name)}</span><span class="q">${esc(r.q)}</span></li>`).join("")}</ul>` : `<p class="empty">Rien</p>`}</div>`;
+  $("shop").innerHTML = selected().length ? col("À acheter", buy, "") + col("Placard (à vérifier)", pantry, "") + col("Déjà au frigo", have, "have")
+    : `<p class="empty">Tire des recettes pour voir la liste.</p>`;
+}
+function renderOdds(){
+  const blocks = [];
+  for (const c of CATS){
+    const pool = recipes.filter(r => r.cat === c.k).map(r => ({r, ...weigh(r, [])}));
+    if (!pool.length) continue;
+    const tot = pool.reduce((s,x) => s + x.w, 0) || 1;
+    pool.sort((a,b) => b.w - a.w || a.r.nom.localeCompare(b.r.nom, "fr"));
+    blocks.push(`<div><h3>${c.label}</h3><div class="odds" style="margin-top:6px">${pool.map(x => {
+      const p = x.w / tot * 100;
+      const tip = x.why.map(w => w[0] + " " + w[1]).join("\n");
+      return `<div class="odd ${x.w ? "" : "zero"}" title="${esc(tip)}"><span class="n">${esc(x.r.nom)}</span><span class="bar"><i style="width:${Math.min(100, p * 2.5).toFixed(1)}%"></i></span><span class="p">${x.w ? p.toFixed(p < 10 ? 1 : 0) + " %" : "exclue"}</span></div>`;
+    }).join("")}</div></div>`);
+  }
+  $("odds").innerHTML = blocks.join("");
+}
+function renderHist(){
+  $("histNote").textContent = histNote;
+  $("hist").innerHTML = history.length ? history.slice(0, 12).map(h => `<li>
+    <span class="d">${new Date(h.date).toLocaleDateString("fr-CH",{day:"2-digit",month:"short"})}</span>
+    <span>${(h.items || []).map(i => esc(i.nom)).join(" · ")}</span>
+    <button type="button" class="x" data-id="${esc(h.id)}">Supprimer</button></li>`).join("")
+    : `<li class="empty" style="display:block;border:0">Aucun tirage validé pour l'instant. Valide un tirage pour lancer la rotation.</li>`;
+  $("hist").querySelectorAll("button.x").forEach(b => b.onclick = () => deleteHist(b.dataset.id));
+}
+function render(){ renderCriteria(); renderPills(); renderDraw(); renderStatus(); renderShop(); renderOdds(); renderHist(); }
+
+/* ---------- Formulaires ---------- */
+function addTo(key, input){
+  const v = input.value.trim().toLowerCase();
+  if (v && !S[key].includes(v)) S[key].push(v);
+  input.value = "";
+  changed();
+}
+$("frigoForm").onsubmit = e => { e.preventDefault(); addTo("frigo", $("frigoIn")); };
+$("eviterForm").onsubmit = e => { e.preventDefault(); addTo("eviter", $("eviterIn")); };
+$("go").onclick = () => generate(true);
+
+/* ---------- Copier pour Claude ---------- */
+function claudeText(){
+  const d = new Date().toLocaleDateString("fr-CH",{day:"numeric",month:"long",year:"numeric"});
+  const lines = [`Batch cooking, tirage du ${d}`];
+  for (const c of CATS){
+    if (!draw[c.k].length) continue;
+    lines.push("", `${c.label} (${c.sub}) :`);
+    draw[c.k].forEach(x => { const r = byId[x.id]; if (r) lines.push(`- ${r.nom} ${r.base === "pièce" ? "(plat entier)" : "× " + S.counts[c.k][1] + " " + c.unit}`); });
+  }
+  if (S.frigo.length) lines.push("", "À écouler du frigo : " + S.frigo.join(", "));
+  lines.push(`Contraintes : budget ${S.budget === "serre" ? "serré" : S.budget}, ${S.maxFour} plat${S.maxFour > 1 ? "s" : ""} au four maximum.`);
+  lines.push("", "Fais-moi une seule marche à suivre pour tout cuisiner en une session (recettes dans ma base Notion RECETTES).");
+  return lines.join("\n");
+}
+$("copier").onclick = async () => {
+  const t = claudeText();
+  try { await navigator.clipboard.writeText(t); setStatus("Copié. Colle-le dans ta conversation avec Claude.", true); $("copybox").hidden = true; }
+  catch(e){ const b = $("copybox"); b.hidden = false; b.value = t; b.focus(); b.select(); setStatus("Copie automatique refusée : le texte est sélectionné ci-dessous, copie-le à la main.", false); }
+};
+
+/* ---------- Historique (base partagée de l'artifact, sinon ce navigateur) ---------- */
+function localHist(){ history = lsGet("batch.historique", []); }
+async function validate(){
+  const items = CATS.flatMap(c => draw[c.k].map(x => { const r = byId[x.id]; return r && {id:r.id, nom:r.nom, cat:c.k, tupps: r.base === "pièce" ? 0 : S.counts[c.k][1]}; })).filter(Boolean);
+  if (!items.length) return;
+  const doc = {date:new Date().toISOString(), items, ids:items.map(i => i.id), frigo:S.frigo.slice(), budget:S.budget};
+  $("valider").disabled = true;
+  if (DB){
+    try { await DB.collection("tirages").add(doc); }
+    catch(e){
+      if (e && e.code === "quota_exceeded") setStatus("Historique plein : supprime d'anciens tirages puis réessaie.", false);
+      else setStatus("Impossible d'enregistrer le tirage pour l'instant. Réessaie dans un moment.", false);
+      $("valider").disabled = false; return;
+    }
+  } else {
+    history = [{id:"l" + Date.now(), ...doc}, ...history].slice(0, 60);
+    lsSet("batch.historique", history);
+  }
+  validated = doc.date; autoDraw = false;
+  draw = Object.fromEntries(CATS.map(c => [c.k, draw[c.k].map(x => ({...x, locked:false}))]));
+  render();
+}
+async function deleteHist(id){
+  if (DB){ try { await DB.collection("tirages").doc(id).delete(); } catch(e){ histNote = "Suppression impossible pour l'instant."; renderHist(); } }
+  else { history = history.filter(h => h.id !== id); lsSet("batch.historique", history); render(); }
+}
+$("valider").onclick = validate;
+
+async function initDb(){
+  if (!window.claude || !window.claude.use){ localHist(); render(); return; }
+  let db = null;
+  try { db = await window.claude.use("db"); } catch(e){}
+  if (!db){ localHist(); render(); return; }
+  DB = db;
+  const timer = setTimeout(() => { histNote = "Historique pas encore joignable."; renderHist(); }, 10000);
+  db.collection("tirages").orderBy("date","desc").limit(60).onSnapshot(snap => {
+    clearTimeout(timer);
+    histNote = "";
+    history = snap.docs.map(d => ({id:d.id, ...d.data()}));
+    if (autoDraw) generate(false); else render();
+  }, err => {
+    clearTimeout(timer);
+    histNote = err && err.code === "revoked" ? "" : "Historique indisponible pour l'instant.";
+    renderHist();
+  });
+}
+
+/* ---------- Lecture de Notion en direct ---------- */
+let MCP = null;
+const SQL = `SELECT "Plats", "Goûts", "Repas", createdTime, url FROM "${DS_URL}"`;
+const QUERY = {data:{data_source_urls:[DS_URL], query:SQL}};
+function idFromUrl(u){ const m = String(u).replace(/-/g,"").match(/([0-9a-f]{32})(?:\?|$)/); return m ? m[1] : String(u); }
+function parsePage(text){
+  const body = (String(text).split("<content>")[1] || "").split("</content>")[0];
+  const ing = [];
+  let inIng = false, base = "personne";
+  for (const line of body.split("\n")){
+    const l = line.trim();
+    if (/^#+\s/.test(l)){ inIng = /ingr[ée]dient/i.test(l); if (inIng && /pi[èe]ce/i.test(l)) base = "pièce"; continue; }
+    const m = inIng && l.match(/^[-*]\s+(.+?)\s*:\s*(.+)$/);
+    if (m) ing.push([m[1], m[2]]);
+  }
+  return {ing, base, four:/enfourne|au four|préchauffe le four|prechauffe le four/i.test(body), froid:/au frais|sans cuisson|overnight/i.test(body) && !/po[êe]le|four/i.test(body)};
+}
+function liveError(e){
+  const code = e && e.code;
+  if (code === "approval_required" || code === "not_in_manifest" || code === "consent_required") return {state:"ask"};
+  if (code === "needs_reauth") return {state:"error", msg:"Reconnecte Notion dans claude.ai, Réglages, Connecteurs"};
+  if (code === "server_not_connected" || code === "selection_required") return {state:"error", msg:"Ajoute le connecteur Notion dans claude.ai, Réglages, Connecteurs"};
+  if (code === "blocked_by_policy") return {state:"error", msg:"Notion bloqué par ton organisation"};
+  return {state:"error", msg:"Notion injoignable pour l'instant"};
+}
+async function applyRows(rows){
+  const old = Object.fromEntries(recipes.map(r => [r.id, r]));
+  const snapById = Object.fromEntries(SNAP.map(r => [r.id, r]));
+  const list = [];
+  const toFetch = [];
+  for (const row of rows){
+    if (!row.Plats) continue;
+    const id = idFromUrl(row.url);
+    let repas = row.Repas; try { if (typeof repas === "string") repas = JSON.parse(repas); } catch(e){ repas = []; }
+    const prev = old[id] || snapById[id];
+    const r = {id, nom:row.Plats, gout:row["Goûts"], repas:repas || [], cree:String(row.createdTime || "").replace(" ","T"),
+      ing: prev ? (prev.ing.map ? prev.ing.map(i => [i[0], i[1]]) : prev.ing) : [], base: prev ? prev.base : "personne",
+      four: prev ? prev.four : false, froid: prev ? prev.froid : false, budget: prev && snapById[id] ? snapById[id].budget : undefined, url: row.url};
+    if (!parseIng(r.ing).length) toFetch.push(r);
+    list.push(r);
+  }
+  for (const r of toFetch.slice(0, 15)){
+    try {
+      const res = await MCP.callTool(NOTION, "notion-fetch", {id:r.url}, {cache:{staleTime:6 * 3600e3, gcTime:7 * 864e5}});
+      const p = res && res.payload;
+      const text = p && typeof p === "object" ? (p.text || JSON.stringify(p)) : String(p || "");
+      const got = parsePage(text);
+      if (got.ing.length){ r.ing = got.ing; r.base = got.base; r.four = got.four; r.froid = got.froid; r.budget = undefined; }
+    } catch(e){ /* la recette reste sans ingrédients */ }
+  }
+  setRecipes(list.map(r => ({...r, ing: parseIng(r.ing)})));
+  lsSet("batch.recettes", {at:Date.now(), list:recipes.map(r => ({id:r.id, nom:r.nom, gout:r.gout, repas:r.repas, cree:r.cree, ing:r.ing, base:r.base, four:r.four, froid:r.froid, budget:r.budget}))});
+}
+async function syncNotion(fromClick){
+  if (!MCP) return;
+  live = {state:"loading"}; renderPills();
+  try {
+    const res = await MCP.callTool(NOTION, "notion-query-data-sources", QUERY, {cache: fromClick ? {refresh:true, staleTime:0, gcTime:864e5} : {staleTime:10 * 60e3, gcTime:864e5}});
+    const p = res && res.payload;
+    const rows = p && p.results ? p.results : null;
+    if (!rows) throw {code:"upstream_error"};
+    await applyRows(rows);
+    live = {state:"live", at: res.cache ? res.cache.storedAt : Date.now()};
+    if (autoDraw) generate(false); else render();
+  } catch(e){
+    live = liveError(e);
+    if (e && e.retryable && !fromClick){ setTimeout(() => syncNotion(false), Math.max(1500, e.retryAfterMs || 0) + Math.random() * 1000); }
+    renderPills();
+  }
+}
+async function initMcp(){
+  if (!window.claude || !window.claude.use) return;
+  try { MCP = await window.claude.use("mcp"); } catch(e){ MCP = null; }
+  if (!MCP) return;
+  live = {state:"ask"}; renderPills();
+  syncNotion(false);
+}
+
+/* ---------- Démarrage ---------- */
+generate(false);
+initDb();
+initMcp();
+</script>
+</body>
+</html>
